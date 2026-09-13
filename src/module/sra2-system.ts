@@ -1955,7 +1955,7 @@ export class SRA2System {
 
     // Run migrations
     const migrations = new Migrations();
-    migrations.migrate();
+    await migrations.migrate();
 
     // Migrate old feat data to new array format (deprecated, keeping for older versions)
     await this.migrateFeatsToArrayFormat();
