@@ -3703,6 +3703,13 @@ function getCurrentActiveSection(html) {
   const activeNavItem = el.querySelector(".section-nav .nav-item.active");
   return activeNavItem ? activeNavItem.dataset.section || null : null;
 }
+function enableSectionNavigation(html) {
+  const el = html instanceof HTMLElement ? html : html[0];
+  if (!el) return;
+  el.querySelectorAll(".section-nav .nav-item[disabled]").forEach((button) => {
+    button.disabled = false;
+  });
+}
 function enrichFeats(feats, actorStrength, calculateFinalDamageValueFn, actor) {
   return feats.map((feat2) => {
     feat2.rrEntries = [];
@@ -4288,6 +4295,7 @@ const SheetHelpers = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.define
   calculateRawDamageString,
   calculateSkillDicePool,
   calculateSpecDicePool,
+  enableSectionNavigation,
   enrichFeats,
   filterItemRRForRoll,
   findAttackSkillAndSpec,
@@ -10553,6 +10561,7 @@ class VehicleSheet extends ActorSheet {
         restoreActiveSection(form, activeSection);
       }
     }));
+    enableSectionNavigation(html);
   }
   /**
    * Handle section navigation
@@ -11362,6 +11371,7 @@ class FeatSheet extends ItemSheet {
         }
       });
     }, { signal });
+    enableSectionNavigation(html);
   }
   /**
    * Handle section navigation
@@ -20347,14 +20357,14 @@ class Migration {
     };
   }
   async applyItemsUpdates(computeUpdates = (items) => []) {
-    await game.actors.forEach(async (actor) => {
+    for (const actor of game.actors) {
       const actorItemUpdates = computeUpdates(actor.items);
       if (actorItemUpdates.length > 0) {
         const message = game.i18n.format("SRA2.MIGRATION.APPLYING_ACTOR_ITEMS", { name: actor.name });
         console.log(SYSTEM.LOG.HEAD, this.code, message, actorItemUpdates);
         await actor.updateEmbeddedDocuments("Item", actorItemUpdates);
       }
-    });
+    }
     const itemUpdates = computeUpdates(game.items);
     if (itemUpdates.length > 0) {
       const message = game.i18n.localize("SRA2.MIGRATION.APPLYING_ITEMS");
@@ -20373,7 +20383,7 @@ class Migrations {
       default: "0.0.0"
     });
   }
-  migrate() {
+  async migrate() {
     const currentVersion = game.settings.get(SYSTEM.id, CURRENT_SYSTEM_VERSION);
     if (foundry.utils.isNewerVersion(game.system.version, currentVersion)) {
       let migrations = [];
@@ -20385,11 +20395,11 @@ class Migrations {
       });
       if (migrations.length > 0) {
         migrations.sort((a, b) => foundry.utils.isNewerVersion(a.version, b.version) ? 1 : foundry.utils.isNewerVersion(b.version, a.version) ? -1 : 0);
-        migrations.forEach(async (m) => {
+        for (const m of migrations) {
           const message2 = game.i18n.format("SRA2.MIGRATION.EXECUTING", { code: m.code, currentVersion, targetVersion: m.version });
           this.$notify(message2);
           await m.migrate();
-        });
+        }
         const message = game.i18n.format("SRA2.MIGRATION.DONE", { version: game.system.version });
         this.$notify(message);
       } else {
@@ -24769,7 +24779,7 @@ class SRA2System {
     this.setupNPCGeneratorButton();
     await this.buildSkillSlugCache();
     const migrations = new Migrations();
-    migrations.migrate();
+    await migrations.migrate();
     await this.migrateFeatsToArrayFormat();
     await this.migrateAnarchyNimbusToSpent();
   }
